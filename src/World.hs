@@ -8,6 +8,7 @@ import Graphics.Gloss.Geometry.Angle
 import qualified Data.Maybe as Mb
 import Flow
 import Brain
+import Util
 
 
 {-|
@@ -66,8 +67,8 @@ instance ControlCar Car where
             orientation = o+100*t*dt
         }
 
-actCar :: Float -> Sensors -> Car -> Car
-actCar dt s car =
+actCar :: World -> Float -> Sensors -> Car -> Car
+actCar w dt s car =
     car
         |> (if ma > 0.5 then startGas else id)
         |> (if ta > 0.5 then startTurnRight else if ta < (-0.5) then startTurnLeft else id)
@@ -82,6 +83,8 @@ actCar dt s car =
 data World =
     World { car :: Car
           , track :: Track
+          , carSection :: Int
+          , lap :: Int
           }
 
 instance ControlCar World where
@@ -100,15 +103,32 @@ instance ControlCar World where
 sense :: World -> Sensors
 sense _ = Sensors 0
 
-actWorld :: Float -> World -> World
-actWorld dt w =
-    w { car = actCar dt sensorIn $ car w}
+curSection :: World -> Int
+curSection w@(World c t curS _)
+    | isInsidePath curSectionPath (position c)  = curS
+    | isInsidePath nextSectionPath (position c) = curS+1
+    | otherwise                                 = curS-1
     where
+        curSectionPath = sections t !! curS
+        nextSectionPath = sections t !! (curS+1)
+
+
+actWorld :: Float -> World -> World
+actWorld _ w = w {car=newCar, carSection=newSec, lap=newLap}
+    where
+        newCar = actCar w 0.01 sensorIn $ car w
+        newSec = curSection w{car = newCar}
+        oldSec = carSection w
+        nSecs = (length . sections . track) w
+        newLap 
+            | newSec == 0 && oldSec == (nSecs-1) = lap w + 1
+            | newSec == (nSecs-1) && oldSec == 0 = lap w - 1
+            | otherwise                          = lap w
         sensorIn = sense w
 
 initWorld :: World
 initWorld =
-    World (Car (-250, -100) 0.0 0.0 0.0 0.0 (Brain 0)) initTrack
+    World (Car (-250, -150) 0.0 0.0 0.0 0.0 (Brain 0)) initTrack 0 0
 
 {-|
     TRACK
@@ -116,6 +136,7 @@ initWorld =
 data Track =
     Track { outer :: Path
           , inner :: Path
+          , sections :: [Path]
           }
 
 initTrack :: Track
@@ -123,6 +144,13 @@ initTrack =
     Track
         [ (300,300), (300,-300), (-300,-300), (-300,300), (300,300) ]
         [ (200,200), (200,-200), (-200,-200), (-200,200), (200,200) ]
+        $ map makeSection [ (-250,-150), (-250,-50), (-250,50), (-250,150), (-250, 250)
+        , (-150,250), (-50,250), (50,250), (150, 250), (250, 250)
+        , (250,150), (250,50), (250,-50), (250,-150), (250, -250)
+        , (150,-250), (50,-250), (-50,-250), (-150, -250), (-250, -250)
+        ]
+    where
+        makeSection (x,y) = [(x+50, y+50), (x+50, y-50), (x-50, y-50), (x-50,y+50), (x+50, y+50)]
 
 
 {-|
@@ -132,21 +160,23 @@ initTrack =
     (q1,q2) are pairs of opposite corners of the car.
 -}
 isCollision :: World -> Bool
-isCollision (World car track) =
+isCollision (World car track _ _) =
     pathsIntersect cPath (inner track) || pathsIntersect cPath (outer track)
     where
         cPath = carPath car
 
-pathsIntersect :: Path -> Path -> Bool
-pathsIntersect [] _ = False
-pathsIntersect [_] _ = False
-pathsIntersect (t:u:vs) path
-    | segmentPathIntersect (t,u) path   = True
-    | otherwise                         = pathsIntersect (u:vs) path
+{-|
+    EVALUATION
+-}
 
-segmentPathIntersect :: (Point, Point) -> Path -> Bool
-segmentPathIntersect seg [] = False
-segmentPathIntersect seg [_] = False
-segmentPathIntersect (q1,q2) (p1:p2:ps)
-    | Mb.isJust $ intersectSegSeg q1 q2 p1 p2 = True
-    | otherwise                     = segmentPathIntersect (q1,q2) (p2:ps)
+getScore :: World -> Int
+getScore world = (lap world * (length . sections . track) world) + carSection world
+
+evaluate :: World -> Float
+evaluate world
+    | isCollision world     = fromIntegral $ getScore world
+    | otherwise             = evaluate $ actWorld 0 world
+
+
+main :: Float
+main = evaluate initWorld

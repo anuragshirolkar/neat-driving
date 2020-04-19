@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: a85ab2a1ad0ca5ae880d11aa06e82775d6ee7f0e94f5f40cdd7879fe4a354b14
+-- hash: 6aa19d0b1ff543bfe2a2061419e9b208b4f33df852ec8dcbc1b07f123b9691f6
 
 name:           neat-example
 version:        0.1.0.0
@@ -32,8 +32,9 @@ library
       Game
       Lib
       Renderer
+      Util
       World
-      Xor
+      XOR
   other-modules:
       Paths_neat_example
   hs-source-dirs:

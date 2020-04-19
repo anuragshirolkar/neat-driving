@@ -3,7 +3,12 @@ module Brain where
 
 newtype Brain = Brain {network :: Int}
 
-newtype Sensors = Sensors {velocitySensor :: Float}
+data Sensors =
+    Sensors { velocitySensor    :: Float
+            , rightMargin       :: Float
+            , leftMargin        :: Float
+            , frontMargin       :: Float
+            }
 
 data Actions = Actions { moveAction :: Float, turnAction :: Float }
 

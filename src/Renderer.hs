@@ -22,4 +22,4 @@ renderWorld w@World{car=car, track=track}
     | otherwise         = Pictures [renderCar car, renderTrack track]
 
 renderTrack :: Track -> Picture
-renderTrack (Track outer inner) = Pictures [Line outer, Line inner]
+renderTrack (Track outer inner _) = Pictures [Line outer, Line inner]
